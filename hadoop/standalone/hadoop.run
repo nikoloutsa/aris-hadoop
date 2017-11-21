@@ -1,0 +1,39 @@
+#!/bin/bash 
+#################################
+# ARIS Hadoop Script            #
+#################################
+
+###############################
+#SBATCH --job-name=hadoop
+#SBATCH --output=hadoop.out
+#SBATCH --error=hadoop.err
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=40
+#SBATCH --time=00:10:00
+#SBATCH --account=testproj
+#SBATCH --partition=fat
+#SBATCH --exclusive
+###############################
+
+module load java/1.7.0
+module load hadoop/2.7.2
+
+# Create Hadoop Configs
+export WORK="${WORKDIR}/${SLURM_JOB_ID}"
+#export HADOOP_LOG_DIR="${WORK}/hadoop/logs"
+#export YARN_LOG_DIR="$HADOOP_LOG_DIR"
+#export HADOOP_MAPRED_LOG_DIR="$HADOOP_LOG_DIR"
+
+mkdir -p ${WORK}
+
+INPUT="${WORK}/input"
+mkdir -p ${INPUT}
+cp ${HADOOP_HOME}/etc/hadoop/* ${INPUT} 
+
+OUTPUT="${WORK}/output"
+
+hadoop jar ${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar grep ${INPUT} ${OUTPUT} 'dfs[a-z.]+'
+
+cat ${OUTPUT}/*

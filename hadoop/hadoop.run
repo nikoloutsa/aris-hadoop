@@ -1,0 +1,95 @@
+#!/bin/bash 
+#################################
+# ARIS Hadoop Standalone script #
+#################################
+
+###############################
+#SBATCH --job-name=hadoop
+#SBATCH --output=hadoop.out
+#SBATCH --error=hadoop.err
+#SBATCH --ntasks=2
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=00:30:00
+#SBATCH --account=testproj
+#SBATCH --partition=fat
+#SBATCH --exclusive
+###############################
+
+module load java/1.7.0
+module load hadoop/2.7.2
+
+# Create Hadoop Configs
+export JAVA_HOME="/apps/compilers/java/1.7.0/jdk1.7.0_80"
+export WORK="${WORKDIR}/${SLURM_JOB_ID}"
+export HADOOP_CONF_DIR="${WORK}/hadoop/conf"
+export HADOOP_LOG_DIR="${WORK}/hadoop/logs"
+export YARN_LOG_DIR="$HADOOP_LOG_DIR"
+export HADOOP_MAPRED_LOG_DIR="$HADOOP_LOG_DIR"
+export TMP="${WORK}/tmp"
+export HADOOP_TMP_DIR="${TMP}"
+
+export DFS_NAME_DIR="${WORK}/namenode_data"
+export DFS_DATA_DIR="${WORK}/hdfs_data"
+export DFS_REPLICATION="1"
+export DFS_BLOCK_SIZE=""
+export MAPRED_LOCAL_DIR="${WORK}/mapred_scratch"
+export MAPRED_TASKTRACKER_MAP_TASKS_MAXIMUM=""
+export MAPRED_TASKTRACKER_REDUCE_TASKS_MAXIMUM=""
+export MAPRED_MAP_TASKS=""
+export MAPRED_REDUCE_TASKS=""
+
+mkdir -p ${WORK}
+mkdir -p ${WORK}/hadoop
+mkdir -p ${HADOOP_LOG_DIR}
+mkdir -p ${HADOOP_CONF_DIR}
+cp conf/* ${HADOOP_CONF_DIR}/.
+
+MASTER=$(hostname)
+echo ${MASTER} > ${HADOOP_CONF_DIR}/masters
+scontrol show hostname $SLURM_NODELIST > ${HADOOP_CONF_DIR}/slaves
+
+sed -i "s|MASTER|${MASTER}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|MASTER|${MASTER}|g" ${HADOOP_CONF_DIR}/core-site.xml
+sed -i "s|HADOOP_TMP_DIR|${HADOOP_TMP_DIR}|g" ${HADOOP_CONF_DIR}/core-site.xml
+sed -i "s|MAPRED_LOCAL_DIR|${MAPRED_LOCAL_DIR}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|MAPRED_TASKTRACKER_MAP_TASKS_MAXIMUM|${MAPRED_TASKTRACKER_MAP_TASKS_MAXIMUM}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|MAPRED_TASKTRACKER_REDUCE_TASKS_MAXIMUM|${MAPRED_TASKTRACKER_REDUCE_TASKS_MAXIMUM}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|MAPRED_MAP_TASKS|${MAPRED_MAP_TASKS}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|MAPRED_REDUCE_TASKS|${MAPRED_REDUCE_TASKS}|g" ${HADOOP_CONF_DIR}/mapred-site.xml
+sed -i "s|DFS_REPLICATION|${DFS_REPLICATION}|g" ${HADOOP_CONF_DIR}/hdfs-site.xml
+sed -i "s|DFS_NAME_DIR|${DFS_NAME_DIR}|g" ${HADOOP_CONF_DIR}/hdfs-site.xml
+sed -i "s|DFS_DATA_DIR|${DFS_DATA_DIR}|g" ${HADOOP_CONF_DIR}/hdfs-site.xml
+
+sed -i "s|.*YARN_LOG_DIR=.*|YARN_LOG_DIR=${YARN_LOG_DIR}|g" ${HADOOP_CONF_DIR}/yarn-env.sh
+sed -i "s|.*export HADOOP_LOG_DIR.*|export HADOOP_LOG_DIR=${HADOOP_LOG_DIR}|g" ${HADOOP_CONF_DIR}/hadoop-env.sh
+sed -i "s|.*export HADOOP_PID_DIR.*|export HADOOP_PID_DIR=${WORKDIR}/${SLURM_JOBID}|g" ${HADOOP_CONF_DIR}/hadoop-env.sh
+
+
+# Format the filesystem:
+hdfs namenode -format -nonInteractive -force
+
+# Start NameNode daemon and DataNode daemon:
+start-dfs.sh
+start-yarn.sh
+
+# Create the HDFS directories required to execute MapReduce jobs:
+hdfs dfs -mkdir  /user
+hdfs dfs -mkdir  /user/${USER}
+
+# Copy the input files into the distributed filesystem:
+hdfs dfs -put ${HADOOP_HOME}/etc/hadoop input
+
+# Map reduce example
+
+hadoop jar ${HADOOP_HOME}/share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar grep input output 'dfs[a-z.]+'
+
+# Copy the output files from the distributed filesystem to the local filesystem
+OUTPUT="${WORK}/output"
+hdfs dfs -get output "${OUTPUT}"
+hdfs dfs -cat output/*
+
+#Stop Hadoop Service
+stop-dfs.sh
+stop-yarn.sh
+
