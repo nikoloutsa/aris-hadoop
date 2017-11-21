@@ -1,0 +1,27 @@
+#!/bin/bash
+
+###############################
+#SBATCH --job-name=spark-single
+#SBATCH --output=spark-single.out
+#SBATCH --error=spark-single.err
+#SBATCH --ntasks=1
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --time=00:30:00
+#SBATCH --account=testproj
+#SBATCH --partition=fat
+#SBATCH --exclusive
+###############################
+
+module load java/1.7.0
+module load hadoop/2.7.2
+module load hadoop/spark2.0.2 
+
+# This syntax tells spark to use all cpu cores on the node.
+export MASTER="local[*]"
+
+# This is a scala example
+run-example SparkPi
+
+# This is a python example. 
+spark-submit --master $MASTER $SPARK_HOME/examples/src/main/python/pi.py
