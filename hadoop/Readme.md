@@ -1,4 +1,4 @@
-# ARIS HADOOP TEST CONFIGURATION
+# ARIS HADOOP CONFIGURATION FILES
 
 This document describes how to configure Hadoop so that you can perform Hadoop MapReduce and
 Hadoop Distributed File System (HDFS) operations on ARIS supercomputer.
